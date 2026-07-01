@@ -1,0 +1,30 @@
+{
+  "hosts": [
+    {
+      "id": 1,
+      "name": "Server1",
+      "ip": "192.168.1.10"
+    },
+    {
+      "id": 1782307560054,
+      "name": "Server2 ",
+      "ip": "192.168.1.20"
+    }
+  ],
+  "problems": [
+    {
+      "id": 101,
+      "host": "Server1",
+      "problem": "CPU Usage High",
+      "severity": "High",
+      "closed": true
+    },
+    {
+      "id": 102,
+      "host": "Database01",
+      "problem": "Disk Space Low",
+      "severity": "Critical",
+      "closed": true
+    }
+  ]
+}
