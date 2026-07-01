@@ -1,12 +1,15 @@
 const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
+const alexaRoute = require("./routes/alexa");
 
 const app = express();
 const PORT = 5000;
 
 app.use(cors());
 app.use(express.json());
+
+app.use("/alexa", alexaRoute);
 
 const DATA_FILE = "./data.json";
 
