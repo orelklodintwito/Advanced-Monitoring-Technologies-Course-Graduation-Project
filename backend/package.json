@@ -12,6 +12,9 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "ask-sdk-core": "^2.14.0",
+    "ask-sdk-express-adapter": "^2.14.0",
+    "body-parser": "^2.3.0",
     "cors": "^2.8.6",
     "express": "^5.2.1"
   }
