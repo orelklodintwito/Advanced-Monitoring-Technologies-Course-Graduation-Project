@@ -1,16 +1,22 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "Smart Voice Assistant for Zabbix Backend",
   "main": "server.js",
+  "type": "commonjs",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "echo \"No tests configured\""
   },
-  "keywords": [],
+  "keywords": [
+    "zabbix",
+    "alexa",
+    "express",
+    "voice-assistant"
+  ],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
     "ask-sdk-core": "^2.14.0",
     "ask-sdk-express-adapter": "^2.14.0",

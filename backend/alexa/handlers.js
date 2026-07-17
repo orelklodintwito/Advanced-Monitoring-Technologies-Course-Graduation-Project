@@ -91,9 +91,8 @@ const LaunchRequestHandler = {
 
   handle(handlerInput) {
     const speechText =
-      "Welcome to the Smart Voice Assistant for Zabbix. " +
-      "You can create a host, delete a host, list problems, " +
-      "or close a problem.";
+    "Welcome to the Smart Voice Assistant for Zabbix. " +
+    "You can create a host, delete a host, list problems, close a problem, or run a health check.";
 
     return handlerInput.responseBuilder
       .speak(speechText)
@@ -302,6 +301,42 @@ const CloseProblemIntentHandler = {
   }
 };
 
+const HealthCheckIntentHandler = {
+  canHandle(handlerInput) {
+    return isIntent(handlerInput, "HealthCheckIntent");
+  },
+
+  async handle(handlerInput) {
+    try {
+      const [hosts, problems] = await Promise.all([
+        zabbix.getHosts(),
+        zabbix.getProblems()
+      ]);
+
+      const activeProblems = problems.filter(
+        (problem) => !problem.closed
+      );
+
+      const speechText =
+        `The backend is running correctly. ` +
+        `There are ${hosts.length} monitored hosts. ` +
+        `There are ${activeProblems.length} active problems in Zabbix.`;
+
+      return handlerInput.responseBuilder
+        .speak(speechText)
+        .getResponse();
+    } catch (error) {
+      console.error("HealthCheckIntent error:", error);
+
+      return handlerInput.responseBuilder
+        .speak(
+          "The backend is running, but I could not retrieve information from Zabbix."
+        )
+        .getResponse();
+    }
+  }
+};
+
 const HelpIntentHandler = {
   canHandle(handlerInput) {
     return isIntent(handlerInput, "AMAZON.HelpIntent");
@@ -309,12 +344,12 @@ const HelpIntentHandler = {
 
   handle(handlerInput) {
     const speechText =
-      "You can say create host, delete host, list problems, " +
-      "or close problem. For example, say create host.";
+  "You can say create host, delete host, list problems, " +
+  "close problem, or health check. For example, say health check.";
 
     return handlerInput.responseBuilder
       .speak(speechText)
-      .reprompt("Try saying, list problems.")
+      .reprompt("Try saying health check or list problems.")
       .getResponse();
   }
 };
@@ -346,7 +381,7 @@ const FallbackIntentHandler = {
     return handlerInput.responseBuilder
       .speak(
         "I did not understand that command. " +
-        "You can create a host, delete a host, list problems, or close a problem."
+        "You can create a host, delete a host, list problems, close a problem, or run a health check."
       )
       .reprompt("Try saying, list problems.")
       .getResponse();
@@ -388,7 +423,7 @@ const ErrorHandler = {
         "Sorry, something went wrong while processing your request. Please try again."
       )
       .reprompt(
-        "You can say list problems, create host, delete host, or close problem."
+        "You can say list problems, create host, delete host, close problem, or health check."
       )
       .getResponse();
   }
@@ -401,6 +436,7 @@ module.exports = {
   ListProblemsIntentHandler,
   CloseProblemIntentHandler,
   HelpIntentHandler,
+  HealthCheckIntentHandler,
   CancelAndStopIntentHandler,
   FallbackIntentHandler,
   SessionEndedRequestHandler,
