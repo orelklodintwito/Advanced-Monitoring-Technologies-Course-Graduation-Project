@@ -317,10 +317,23 @@ const HealthCheckIntentHandler = {
         (problem) => !problem.closed
       );
 
-      const speechText =
-        `The backend is running correctly. ` +
-        `There are ${hosts.length} monitored hosts. ` +
-        `There are ${activeProblems.length} active problems in Zabbix.`;
+      const hostText =
+    hosts.length === 1
+      ? "There is 1 monitored host."
+      : `There are ${hosts.length} monitored hosts.`;
+
+  const problemText =
+    activeProblems.length === 0
+      ? "There are no active problems in Zabbix."
+      : activeProblems.length === 1
+        ? "There is 1 active problem in Zabbix."
+        : `There are ${activeProblems.length} active problems in Zabbix.`;
+
+  const speechText =
+    `The backend is running correctly. ` +
+    hostText +
+    " " +
+    problemText;
 
       return handlerInput.responseBuilder
         .speak(speechText)
