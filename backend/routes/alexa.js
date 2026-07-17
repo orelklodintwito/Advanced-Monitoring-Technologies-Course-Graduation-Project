@@ -11,27 +11,6 @@ const adapter = new ExpressAdapter(
   false
 );
 
-/**
- * POST /alexa
- * Receives Alexa requests and forwards them to the Alexa skill.
- */
-router.post("/", (req, res, next) => {
-  if (!req.body || typeof req.body !== "object") {
-    return res.status(400).json({
-      success: false,
-      error: "Invalid Alexa request body"
-    });
-  }
-
-  const handlers = adapter.getRequestHandlers();
-
-  return handlers(req, res, next);
-});
-
-/**
- * GET /alexa
- * Simple endpoint check for browsers and monitoring tools.
- */
 router.get("/", (req, res) => {
   return res.status(200).json({
     success: true,
@@ -40,5 +19,7 @@ router.get("/", (req, res) => {
     message: "Send Alexa requests using POST"
   });
 });
+
+router.post("/", adapter.getRequestHandlers());
 
 module.exports = router;
