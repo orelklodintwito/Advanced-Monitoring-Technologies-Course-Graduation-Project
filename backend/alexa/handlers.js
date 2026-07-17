@@ -112,14 +112,20 @@ const CreateHostIntentHandler = {
   },
 
   async handle(handlerInput) {
-    const hostName = getSlotValue(handlerInput, "HostName");
-    const rawIpAddress = getSlotValue(handlerInput, "IpAddress");
+   const hostName = getSlotValue(handlerInput, "HostName");
+const rawIpAddress = getSlotValue(handlerInput, "IpAddress");
 
-  const ipAddress = rawIpAddress
-    ?.toLowerCase()
-    .replace(/\s+dot\s+/g, ".")
-    .replace(/\s+/g, "")
-    .trim();
+console.log("HOST:", hostName);
+console.log("RAW IP:", rawIpAddress);
+console.log(
+  JSON.stringify(getIntent(handlerInput).slots, null, 2)
+);
+
+const ipAddress = rawIpAddress
+  ?.toLowerCase()
+  .replace(/\s+dot\s+/g, ".")
+  .replace(/\s+/g, "")
+  .trim();
 
     if (!hostName) {
       return elicitSlot(
