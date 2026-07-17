@@ -20,6 +20,8 @@ router.get("/", (req, res) => {
   });
 });
 
-router.post("/", adapter.getRequestHandlers());
+const alexaRequestHandlers = adapter.getRequestHandlers();
+
+router.post("/", ...alexaRequestHandlers);
 
 module.exports = router;
