@@ -1,49 +1,84 @@
 const zabbix = require("../services/zabbixService");
 
 exports.getHosts = async (req, res) => {
-    try {
-        const hosts = await zabbix.getHosts();
-        res.json(hosts);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: err.message });
-    }
+  try {
+    const hosts = await zabbix.getHosts();
+
+    return res.status(200).json({
+      success: true,
+      count: hosts.length,
+      hosts
+    });
+  } catch (error) {
+    console.error("Failed to get hosts:", error);
+
+    return res.status(500).json({
+      success: false,
+      error: error.message || "Failed to retrieve hosts"
+    });
+  }
 };
 
 exports.createHost = async (req, res) => {
-    try {
-        const { name, ip } = req.body;
+  try {
+    const { name, ip } = req.body;
 
-        const result = await zabbix.createHost(name, ip);
-
-        res.json({
-            success: true,
-            result
-        });
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({
-            success: false,
-            error: err.message
-        });
+    if (!name || !name.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: "Host name is required"
+      });
     }
+
+    if (!ip || !ip.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: "Host IP address is required"
+      });
+    }
+
+    const result = await zabbix.createHost(
+      name.trim(),
+      ip.trim()
+    );
+
+    return res.status(201).json(result);
+  } catch (error) {
+    console.error("Failed to create host:", error);
+
+    const statusCode =
+      error.message?.includes("already exists") ? 409 : 500;
+
+    return res.status(statusCode).json({
+      success: false,
+      error: error.message || "Failed to create host"
+    });
+  }
 };
 
 exports.deleteHost = async (req, res) => {
-    try {
-        const result = await zabbix.deleteHostByName(req.params.name);
+  try {
+    const name = decodeURIComponent(req.params.name || "").trim();
 
-        res.json({
-            success: true,
-            result
-        });
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({
-            success: false,
-            error: err.message
-        });
+    if (!name) {
+      return res.status(400).json({
+        success: false,
+        error: "Host name is required"
+      });
     }
+
+    const result = await zabbix.deleteHostByName(name);
+
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error("Failed to delete host:", error);
+
+    const statusCode =
+      error.message?.includes("was not found") ? 404 : 500;
+
+    return res.status(statusCode).json({
+      success: false,
+      error: error.message || "Failed to delete host"
+    });
+  }
 };

@@ -8,6 +8,7 @@ const {
   CloseProblemIntentHandler,
   HelpIntentHandler,
   CancelAndStopIntentHandler,
+  FallbackIntentHandler,
   SessionEndedRequestHandler,
   ErrorHandler
 } = require("./handlers");
@@ -21,9 +22,13 @@ const skill = Alexa.SkillBuilders.custom()
     CloseProblemIntentHandler,
     HelpIntentHandler,
     CancelAndStopIntentHandler,
+    FallbackIntentHandler,
     SessionEndedRequestHandler
   )
   .addErrorHandlers(ErrorHandler)
+  .withCustomUserAgent(
+    "advanced-monitoring-technologies/zabbix-voice-assistant"
+  )
   .create();
 
 module.exports = skill;

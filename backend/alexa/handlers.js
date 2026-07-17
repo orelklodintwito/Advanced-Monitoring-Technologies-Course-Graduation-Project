@@ -1,148 +1,376 @@
 const zabbix = require("../services/zabbixService");
 
-const getSlotValue = (handlerInput, slotName) => {
-  const slots = handlerInput.requestEnvelope.request.intent.slots || {};
-  return slots[slotName]?.value || null;
-};
+function getRequest(handlerInput) {
+  return handlerInput.requestEnvelope.request;
+}
+
+function getIntent(handlerInput) {
+  return getRequest(handlerInput).intent;
+}
+
+function getSlotValue(handlerInput, slotName) {
+  const intent = getIntent(handlerInput);
+  const slot = intent?.slots?.[slotName];
+
+  return slot?.value?.trim() || null;
+}
+
+function elicitSlot(
+  handlerInput,
+  slotName,
+  speechText,
+  repromptText = speechText
+) {
+  return handlerInput.responseBuilder
+    .speak(speechText)
+    .reprompt(repromptText)
+    .addElicitSlotDirective(slotName)
+    .getResponse();
+}
+
+function isIntent(handlerInput, intentName) {
+  const request = getRequest(handlerInput);
+
+  return (
+    request.type === "IntentRequest" &&
+    request.intent?.name === intentName
+  );
+}
+
+function makeIpAddressSpeakable(ipAddress) {
+  if (!ipAddress) {
+    return "";
+  }
+
+  return ipAddress
+    .split(".")
+    .join(" dot ");
+}
+
+function getFriendlyErrorMessage(error) {
+  const message = error?.message || "";
+
+  if (message.includes("already exists")) {
+    return "A host with that name already exists in Zabbix.";
+  }
+
+  if (
+    message.includes("was not found") ||
+    message.includes("Host not found")
+  ) {
+    return "I could not find that host in Zabbix.";
+  }
+
+  if (message.includes("cannot be closed manually")) {
+    return "That problem cannot be closed manually.";
+  }
+
+  if (message.includes("Could not connect")) {
+    return "I could not connect to the Zabbix server.";
+  }
+
+  if (message.includes("timed out")) {
+    return "The Zabbix server took too long to respond.";
+  }
+
+  if (
+    message.includes("login") ||
+    message.includes("authorized") ||
+    message.includes("password")
+  ) {
+    return "I could not authenticate with the Zabbix server.";
+  }
+
+  return "The operation could not be completed in Zabbix.";
+}
 
 const LaunchRequestHandler = {
   canHandle(handlerInput) {
-    return handlerInput.requestEnvelope.request.type === "LaunchRequest";
+    return getRequest(handlerInput).type === "LaunchRequest";
   },
+
   handle(handlerInput) {
+    const speechText =
+      "Welcome to the Smart Voice Assistant for Zabbix. " +
+      "You can create a host, delete a host, list problems, " +
+      "or close a problem.";
+
     return handlerInput.responseBuilder
-      .speak("Welcome to Smart Voice Assistant for Zabbix. You can create a host, delete a host, list problems, or close a problem.")
-      .reprompt("What would you like to do?")
+      .speak(speechText)
+      .reprompt(
+        "What would you like to do? You can say, list problems."
+      )
       .getResponse();
   }
 };
 
 const CreateHostIntentHandler = {
   canHandle(handlerInput) {
-    return handlerInput.requestEnvelope.request.type === "IntentRequest" &&
-      handlerInput.requestEnvelope.request.intent.name === "CreateHostIntent";
+    return isIntent(handlerInput, "CreateHostIntent");
   },
+
   async handle(handlerInput) {
     const hostName = getSlotValue(handlerInput, "HostName");
+    const ipAddress = getSlotValue(handlerInput, "IpAddress");
 
     if (!hostName) {
-      return handlerInput.responseBuilder
-        .speak("What is the host name?")
-        .reprompt("Please say the host name.")
-        .getResponse();
+      return elicitSlot(
+        handlerInput,
+        "HostName",
+        "What is the name of the new host?",
+        "Please say the host name."
+      );
     }
 
-    const defaultIp = "127.0.0.1";
+    if (!ipAddress) {
+      return elicitSlot(
+        handlerInput,
+        "IpAddress",
+        `What is the IP address for host ${hostName}?`,
+        "Please say the IP address one number at a time."
+      );
+    }
 
-    await zabbix.createHost(hostName, defaultIp);
+    try {
+      const result = await zabbix.createHost(
+        hostName,
+        ipAddress
+      );
 
-    return handlerInput.responseBuilder
-      .speak(`Host ${hostName} was created successfully in Zabbix with IP address ${defaultIp}.`)
-      .getResponse();
+      const speakableIp = makeIpAddressSpeakable(ipAddress);
+
+      return handlerInput.responseBuilder
+        .speak(
+          `${result.message}. ` +
+          `The IP address is ${speakableIp}.`
+        )
+        .getResponse();
+    } catch (error) {
+      console.error("CreateHostIntent error:", error);
+
+      return handlerInput.responseBuilder
+        .speak(getFriendlyErrorMessage(error))
+        .reprompt(
+          "You can try creating the host again or choose another operation."
+        )
+        .getResponse();
+    }
   }
 };
 
 const DeleteHostIntentHandler = {
   canHandle(handlerInput) {
-    return handlerInput.requestEnvelope.request.type === "IntentRequest" &&
-      handlerInput.requestEnvelope.request.intent.name === "DeleteHostIntent";
+    return isIntent(handlerInput, "DeleteHostIntent");
   },
+
   async handle(handlerInput) {
     const hostName = getSlotValue(handlerInput, "HostName");
 
     if (!hostName) {
-      return handlerInput.responseBuilder
-        .speak("Which host should I delete?")
-        .reprompt("Please say the host name.")
-        .getResponse();
+      return elicitSlot(
+        handlerInput,
+        "HostName",
+        "Which host should I delete?",
+        "Please say the exact host name."
+      );
     }
 
-    await zabbix.deleteHostByName(hostName);
+    try {
+      const result =
+        await zabbix.deleteHostByName(hostName);
 
-    return handlerInput.responseBuilder
-      .speak(`Host ${hostName} was deleted successfully from Zabbix.`)
-      .getResponse();
+      return handlerInput.responseBuilder
+        .speak(result.message)
+        .getResponse();
+    } catch (error) {
+      console.error("DeleteHostIntent error:", error);
+
+      return handlerInput.responseBuilder
+        .speak(getFriendlyErrorMessage(error))
+        .reprompt(
+          "You can say another host name or choose another operation."
+        )
+        .getResponse();
+    }
   }
 };
 
 const ListProblemsIntentHandler = {
   canHandle(handlerInput) {
-    return handlerInput.requestEnvelope.request.type === "IntentRequest" &&
-      handlerInput.requestEnvelope.request.intent.name === "ListProblemsIntent";
+    return isIntent(handlerInput, "ListProblemsIntent");
   },
-  async handle(handlerInput) {
-    const problems = await zabbix.getProblems();
 
-    if (!problems.length) {
+  async handle(handlerInput) {
+    try {
+      const problems = await zabbix.getProblems();
+
+      const activeProblems = problems.filter(
+        (problem) => !problem.closed
+      );
+
+      if (activeProblems.length === 0) {
+        return handlerInput.responseBuilder
+          .speak(
+            "There are no current problems in Zabbix."
+          )
+          .getResponse();
+      }
+
+      const maximumProblemsToRead = 5;
+
+      const problemDescriptions = activeProblems
+        .slice(0, maximumProblemsToRead)
+        .map((problem, index) => {
+          const closeStatus = problem.canClose
+            ? "This problem can be closed manually."
+            : "This problem cannot be closed manually.";
+
+          return (
+            `Problem ${index + 1}. ` +
+            `Event number ${problem.id}. ` +
+            `Host ${problem.host}. ` +
+            `${problem.problem}. ` +
+            `Severity ${problem.severity}. ` +
+            closeStatus
+          );
+        });
+
+      let speechText =
+        `There are ${activeProblems.length} current problems. ` +
+        problemDescriptions.join(" ");
+
+      if (activeProblems.length > maximumProblemsToRead) {
+        speechText +=
+          ` I read the first ${maximumProblemsToRead} problems.`;
+      }
+
+      speechText +=
+        " To close a problem, say close problem followed by the event number.";
+
       return handlerInput.responseBuilder
-        .speak("There are no current problems in Zabbix.")
+        .speak(speechText)
+        .reprompt(
+          "You can say close problem followed by the event number."
+        )
+        .getResponse();
+    } catch (error) {
+      console.error("ListProblemsIntent error:", error);
+
+      return handlerInput.responseBuilder
+        .speak(getFriendlyErrorMessage(error))
         .getResponse();
     }
-
-    const text = problems
-      .slice(0, 5)
-      .map(problem => `Problem ${problem.eventid}: ${problem.name}, severity ${problem.severity}`)
-      .join(". ");
-
-    return handlerInput.responseBuilder
-      .speak(`Current Zabbix problems are: ${text}`)
-      .getResponse();
   }
 };
 
 const CloseProblemIntentHandler = {
   canHandle(handlerInput) {
-    return handlerInput.requestEnvelope.request.type === "IntentRequest" &&
-      handlerInput.requestEnvelope.request.intent.name === "CloseProblemIntent";
+    return isIntent(handlerInput, "CloseProblemIntent");
   },
+
   async handle(handlerInput) {
-    const problemId = getSlotValue(handlerInput, "ProblemId");
+    const problemId = getSlotValue(
+      handlerInput,
+      "ProblemId"
+    );
 
     if (!problemId) {
-      return handlerInput.responseBuilder
-        .speak("Which problem number should I close?")
-        .reprompt("Please say the problem number.")
-        .getResponse();
+      return elicitSlot(
+        handlerInput,
+        "ProblemId",
+        "What is the event number of the problem you want to close?",
+        "Please say the problem event number."
+      );
     }
 
-    await zabbix.closeProblem(problemId);
+    try {
+      const result = await zabbix.closeProblem(problemId);
 
-    return handlerInput.responseBuilder
-      .speak(`Problem number ${problemId} was closed successfully in Zabbix.`)
-      .getResponse();
+      return handlerInput.responseBuilder
+        .speak(result.message)
+        .getResponse();
+    } catch (error) {
+      console.error("CloseProblemIntent error:", error);
+
+      return handlerInput.responseBuilder
+        .speak(getFriendlyErrorMessage(error))
+        .reprompt(
+          "You can say list problems to hear the available event numbers."
+        )
+        .getResponse();
+    }
   }
 };
 
 const HelpIntentHandler = {
   canHandle(handlerInput) {
-    return handlerInput.requestEnvelope.request.type === "IntentRequest" &&
-      handlerInput.requestEnvelope.request.intent.name === "AMAZON.HelpIntent";
+    return isIntent(handlerInput, "AMAZON.HelpIntent");
   },
+
   handle(handlerInput) {
+    const speechText =
+      "You can say create host, delete host, list problems, " +
+      "or close problem. For example, say create host.";
+
     return handlerInput.responseBuilder
-      .speak("You can say create host, delete host, list problems, or close problem.")
-      .reprompt("Try saying list problems.")
+      .speak(speechText)
+      .reprompt("Try saying, list problems.")
       .getResponse();
   }
 };
 
 const CancelAndStopIntentHandler = {
   canHandle(handlerInput) {
-    return handlerInput.requestEnvelope.request.type === "IntentRequest" &&
-      ["AMAZON.CancelIntent", "AMAZON.StopIntent"].includes(
-        handlerInput.requestEnvelope.request.intent.name
-      );
+    return (
+      isIntent(handlerInput, "AMAZON.CancelIntent") ||
+      isIntent(handlerInput, "AMAZON.StopIntent")
+    );
   },
+
   handle(handlerInput) {
-    return handlerInput.responseBuilder.speak("Goodbye.").getResponse();
+    return handlerInput.responseBuilder
+      .speak("Goodbye.")
+      .getResponse();
+  }
+};
+
+const FallbackIntentHandler = {
+  canHandle(handlerInput) {
+    return isIntent(
+      handlerInput,
+      "AMAZON.FallbackIntent"
+    );
+  },
+
+  handle(handlerInput) {
+    return handlerInput.responseBuilder
+      .speak(
+        "I did not understand that command. " +
+        "You can create a host, delete a host, list problems, or close a problem."
+      )
+      .reprompt("Try saying, list problems.")
+      .getResponse();
   }
 };
 
 const SessionEndedRequestHandler = {
   canHandle(handlerInput) {
-    return handlerInput.requestEnvelope.request.type === "SessionEndedRequest";
+    return (
+      getRequest(handlerInput).type ===
+      "SessionEndedRequest"
+    );
   },
+
   handle(handlerInput) {
+    const request = getRequest(handlerInput);
+
+    if (request.reason === "ERROR") {
+      console.error(
+        "Alexa session ended with an error:",
+        request.error
+      );
+    }
+
     return handlerInput.responseBuilder.getResponse();
   }
 };
@@ -151,10 +379,17 @@ const ErrorHandler = {
   canHandle() {
     return true;
   },
+
   handle(handlerInput, error) {
-    console.error("Alexa error:", error);
+    console.error("Unhandled Alexa error:", error);
+
     return handlerInput.responseBuilder
-      .speak("Sorry, something went wrong while processing the request.")
+      .speak(
+        "Sorry, something went wrong while processing your request. Please try again."
+      )
+      .reprompt(
+        "You can say list problems, create host, delete host, or close problem."
+      )
       .getResponse();
   }
 };
@@ -167,6 +402,7 @@ module.exports = {
   CloseProblemIntentHandler,
   HelpIntentHandler,
   CancelAndStopIntentHandler,
+  FallbackIntentHandler,
   SessionEndedRequestHandler,
   ErrorHandler
 };
