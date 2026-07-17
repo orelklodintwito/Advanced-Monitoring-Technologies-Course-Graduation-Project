@@ -21,10 +21,13 @@ function elicitSlot(
   speechText,
   repromptText = speechText
 ) {
+  const currentIntent =
+    handlerInput.requestEnvelope.request.intent;
+
   return handlerInput.responseBuilder
     .speak(speechText)
     .reprompt(repromptText)
-    .addElicitSlotDirective(slotName)
+    .addElicitSlotDirective(slotName, currentIntent)
     .getResponse();
 }
 
