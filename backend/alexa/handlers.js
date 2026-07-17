@@ -1,3 +1,5 @@
+const zabbix = require("../services/zabbixService");
+
 const getSlotValue = (handlerInput, slotName) => {
   const slots = handlerInput.requestEnvelope.request.intent.slots || {};
   return slots[slotName]?.value || null;
@@ -20,7 +22,7 @@ const CreateHostIntentHandler = {
     return handlerInput.requestEnvelope.request.type === "IntentRequest" &&
       handlerInput.requestEnvelope.request.intent.name === "CreateHostIntent";
   },
-  handle(handlerInput) {
+  async handle(handlerInput) {
     const hostName = getSlotValue(handlerInput, "HostName");
 
     if (!hostName) {
@@ -30,8 +32,12 @@ const CreateHostIntentHandler = {
         .getResponse();
     }
 
+    const defaultIp = "127.0.0.1";
+
+    await zabbix.createHost(hostName, defaultIp);
+
     return handlerInput.responseBuilder
-      .speak(`I received host name ${hostName}. Next we will collect the IP address and create it in Zabbix.`)
+      .speak(`Host ${hostName} was created successfully in Zabbix with IP address ${defaultIp}.`)
       .getResponse();
   }
 };
@@ -41,7 +47,7 @@ const DeleteHostIntentHandler = {
     return handlerInput.requestEnvelope.request.type === "IntentRequest" &&
       handlerInput.requestEnvelope.request.intent.name === "DeleteHostIntent";
   },
-  handle(handlerInput) {
+  async handle(handlerInput) {
     const hostName = getSlotValue(handlerInput, "HostName");
 
     if (!hostName) {
@@ -51,8 +57,10 @@ const DeleteHostIntentHandler = {
         .getResponse();
     }
 
+    await zabbix.deleteHostByName(hostName);
+
     return handlerInput.responseBuilder
-      .speak(`Deleting host ${hostName} from Zabbix.`)
+      .speak(`Host ${hostName} was deleted successfully from Zabbix.`)
       .getResponse();
   }
 };
@@ -62,9 +70,22 @@ const ListProblemsIntentHandler = {
     return handlerInput.requestEnvelope.request.type === "IntentRequest" &&
       handlerInput.requestEnvelope.request.intent.name === "ListProblemsIntent";
   },
-  handle(handlerInput) {
+  async handle(handlerInput) {
+    const problems = await zabbix.getProblems();
+
+    if (!problems.length) {
+      return handlerInput.responseBuilder
+        .speak("There are no current problems in Zabbix.")
+        .getResponse();
+    }
+
+    const text = problems
+      .slice(0, 5)
+      .map(problem => `Problem ${problem.eventid}: ${problem.name}, severity ${problem.severity}`)
+      .join(". ");
+
     return handlerInput.responseBuilder
-      .speak("Reading current problems from Zabbix.")
+      .speak(`Current Zabbix problems are: ${text}`)
       .getResponse();
   }
 };
@@ -74,7 +95,7 @@ const CloseProblemIntentHandler = {
     return handlerInput.requestEnvelope.request.type === "IntentRequest" &&
       handlerInput.requestEnvelope.request.intent.name === "CloseProblemIntent";
   },
-  handle(handlerInput) {
+  async handle(handlerInput) {
     const problemId = getSlotValue(handlerInput, "ProblemId");
 
     if (!problemId) {
@@ -84,8 +105,10 @@ const CloseProblemIntentHandler = {
         .getResponse();
     }
 
+    await zabbix.closeProblem(problemId);
+
     return handlerInput.responseBuilder
-      .speak(`Closing problem number ${problemId} in Zabbix.`)
+      .speak(`Problem number ${problemId} was closed successfully in Zabbix.`)
       .getResponse();
   }
 };

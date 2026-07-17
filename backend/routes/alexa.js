@@ -4,7 +4,7 @@ const skill = require("../alexa/skill");
 
 const router = express.Router();
 
-const adapter = new ExpressAdapter(skill, true, true);
+const adapter = new ExpressAdapter(skill, false, false);
 
 router.post("/", adapter.getRequestHandlers());
 
